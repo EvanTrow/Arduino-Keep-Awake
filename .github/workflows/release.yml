@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.2.3)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Determine version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $v = "${{ inputs.version }}"
+          }
+          "sem=$v"    >> $env:GITHUB_OUTPUT
+          "tag=v$v"   >> $env:GITHUB_OUTPUT
+
+      - name: Publish EXE (self-contained, x64)
+        shell: pwsh
+        run: |
+          dotnet publish "Keep Awake/Keep Awake.csproj" `
+            -c Release -r win-x64 --self-contained true `
+            -p:Version="${{ steps.ver.outputs.sem }}" `
+            -o "installer/publish"
+
+      - name: Build installer (.exe)
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DAppVersion=${{ steps.ver.outputs.sem }}" `
+            "installer\KeepAwake.iss"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Keep Awake ${{ steps.ver.outputs.sem }}
+          body: |
+            ## Installation
+
+            Download **KeepAwake-Setup-${{ steps.ver.outputs.sem }}.exe** and run it.
+
+            No administrator access required — the app installs for the current user only.
+
+            To uninstall, go to **Settings → Apps → Keep Awake → Uninstall**.
+          files: |
+            installer/output/KeepAwake-Setup-${{ steps.ver.outputs.sem }}.exe
