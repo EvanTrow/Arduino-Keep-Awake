@@ -141,11 +141,10 @@ When enabled, closing the window sends the app to the system tray instead of exi
 
 The workflow builds a self-contained EXE and packages it with Inno Setup automatically.
 
-To create a release, push a tag:
+To create a release, bump `<Version>` in [`Keep Awake/Keep Awake.csproj`](Keep%20Awake/Keep%20Awake.csproj) and push to `main`:
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
+```xml
+<Version>1.1.0</Version>
 ```
 
-The workflow builds and publishes the installer automatically. You can also trigger a release manually from the **Actions** tab using **workflow_dispatch** and entering a version number.
+The workflow detects the csproj change, reads the version, builds the installer, and publishes a GitHub release automatically. You can also re-trigger a build manually from the **Actions** tab using **workflow_dispatch**.

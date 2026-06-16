@@ -2,14 +2,11 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - 'Keep Awake/Keep Awake.csproj'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g. 1.2.3)'
-        required: true
-        default: '1.0.0'
 
 permissions:
   contents: write
@@ -27,24 +24,23 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Determine version
+      - name: Read version from project
         id: ver
         shell: pwsh
         run: |
-          if ("${{ github.ref_type }}" -eq "tag") {
-            $v = "${{ github.ref_name }}".TrimStart("v")
-          } else {
-            $v = "${{ inputs.version }}"
-          }
-          "sem=$v"    >> $env:GITHUB_OUTPUT
-          "tag=v$v"   >> $env:GITHUB_OUTPUT
+          $xml = [xml](Get-Content "Keep Awake/Keep Awake.csproj")
+          $v   = @($xml.Project.PropertyGroup) |
+                   ForEach-Object { $_.Version } |
+                   Where-Object   { $_ } |
+                   Select-Object  -First 1
+          "sem=$v"  >> $env:GITHUB_OUTPUT
+          "tag=v$v" >> $env:GITHUB_OUTPUT
 
       - name: Publish EXE (self-contained, x64)
         shell: pwsh
         run: |
           dotnet publish "Keep Awake/Keep Awake.csproj" `
-            -c Release -r win-x64 --self-contained true `
-            -p:Version="${{ steps.ver.outputs.sem }}" `
+            -c Release --self-contained true `
             -o "installer/publish"
 
       - name: Build installer (.exe)
